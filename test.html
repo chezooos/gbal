@@ -1,0 +1,917 @@
+<!doctype html>
+<html lang="ko">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>우끼끼</title>
+    <style>
+        :root {
+            --bg: #0d1526;
+            --panel: #111b33;
+            --panel-2: #0f1830;
+            --line: #1f2b4a;
+            --txt: #e6eefc;
+            --muted: #8fa3ca;
+            --accent: #2c7df0;
+            --up: #18b169;
+            --down: #ea3943
+        }
+
+        * { box-sizing: border-box }
+        html, body { height: 100% }
+        body {
+            margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+            color: var(--txt); background: linear-gradient(180deg, #0b1222 0%, var(--bg) 60%)
+        }
+
+        .topbar{
+            display:flex; align-items:center; justify-content:space-between; padding:10px 16px;
+            border-bottom:1px solid var(--line); background:rgba(9,14,28,.8); position:sticky; top:0;
+            backdrop-filter: blur(6px); z-index:10
+        }
+        .brand{ display:flex; gap:10px; align-items:center; font-size:18px }
+        .logo{ width:24px; height:24px; display:inline-grid; place-items:center; border-radius:6px; background:var(--accent) }
+        .toolbar{ display:flex; align-items:center; gap:8px; color:var(--muted) }
+
+        .layout{ display:grid; grid-template-columns:280px 1fr 340px; gap:16px; padding:16px; max-width:1400px; margin:0 auto }
+        .card{ background:linear-gradient(180deg, var(--panel), var(--panel-2)); border:1px solid var(--line); border-radius:12px; padding:12px }
+        .card+.card{ margin-top:12px }
+        .card-title{ font-size:14px; color:var(--muted); margin-bottom:8px }
+
+        .input{ width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:10px; background:#0b1222; color:var(--txt) }
+        .input.right{ text-align:right }
+
+        .list{ list-style:none; margin:0; padding:0; max-height:48vh; overflow:auto }
+        .list li{ padding:10px 12px; display:flex; justify-content:space-between; gap:8px; border-bottom:1px solid var(--line); cursor:pointer }
+        .list li:hover{ background:#0e162a }
+        .list .sym{ font-weight:600 }
+        .list .chg{ min-width:70px; text-align:right }
+
+        .grid2{ display:grid; grid-template-columns:1fr 360px; gap:16px }
+        .mt16{ margin-top:16px }
+
+        .price-head{ display:flex; align-items:flex-end; justify-content:space-between; gap:8px; margin-bottom:8px }
+        .symbol-name{ font-size:18px; font-weight:700 }
+        .symbol-code{ font-size:12px; color:var(--muted) }
+        .price-now{ font-size:28px; font-weight:800 }
+        .price-change{ font-size:12px; text-align:right }
+        .price-change.up{ color:var(--up) }
+        .price-change.down{ color:var(--down) }
+
+        .orderbook{ display:grid; grid-template-columns:1fr 1fr; gap:12px }
+        .ob-head{ font-size:12px; color:var(--muted); margin-bottom:6px }
+        .ob-head.buy{ color:#9ad1ff }
+        .ob-list{ list-style:none; padding:0; margin:0; border:1px solid var(--line); border-radius:8px; overflow:hidden }
+        .ob-list li{ display:grid; grid-template-columns:1fr 1fr 1fr; padding:6px 8px; border-bottom:1px solid var(--line); font-size:13px }
+        .ob-list li:last-child{ border-bottom:none }
+        .ob-qty{ color:var(--muted); text-align:right }
+        .ob-price{ font-variant-numeric:tabular-nums; text-align:right }
+        .ob-ask{ color:var(--down) }
+        .ob-bid{ color:var(--up) }
+
+        .tabs{ display:flex; gap:6px; margin-bottom:10px }
+        .tab{ flex:1; padding:8px 10px; border-radius:10px; border:1px solid var(--line); background:#0b1222; color:var(--txt); cursor:pointer }
+        .tab.active{ background:var(--accent); border-color:transparent }
+
+        .order-form .row{ display:grid; grid-template-columns:90px 1fr; gap:10px; align-items:center; margin:8px 0 }
+        .hint{ color:var(--muted); font-size:12px; margin-top:6px }
+
+        .primary{ background:var(--accent); border:none; color:white; padding:10px 12px; border-radius:10px; cursor:pointer; font-weight:700 }
+        .ghost{ background:transparent; border:1px solid var(--line); color:var(--txt); padding:8px 10px; border-radius:10px; cursor:pointer }
+        .w100{ width:100% }
+
+        .balances{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-bottom:8px; font-variant-numeric:tabular-nums }
+        .table{ width:100%; border-collapse:collapse; font-size:13px }
+        .table th, .table td{ border-bottom:1px solid var(--line); padding:8px 6px; text-align:right }
+        .table th:first-child, .table td:first-child{ text-align:left }
+
+        .info{ color:var(--muted); font-size:14px; line-height:1.6 }
+        .footer{ padding:14px; text-align:center; color:var(--muted); border-top:1px solid var(--line); margin-top:12px }
+
+        #authBtn{ position:relative; z-index:9999; pointer-events:auto !important }
+        #authModal{ pointer-events:auto }
+
+        @media(max-width:1200px){
+            .layout{ grid-template-columns:260px 1fr }
+            .pane.right{ display:none }
+        }
+        @media(max-width:860px){
+            .layout{ grid-template-columns:1fr }
+            .grid2{ grid-template-columns:1fr }
+        }
+    </style>
+
+    <!-- SDK 먼저 -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- Supabase 클라이언트 생성 -->
+    <script>
+        const SB_URL = "https://habeafipujduxsqfiadf.supabase.co";
+        const SB_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhhYmVhZmlwdWpkdXhzcWZpYWRmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE4ODc5NDQsImV4cCI6MjA3NzQ2Mzk0NH0.rDZghaWsitnycMpQKfwsnNJfbeoSK-z-6Uxkoiz79Rk";
+        const supabase = window.supabase.createClient(SB_URL, SB_ANON_KEY);
+
+        supabase.auth.getSession().then(({ data, error }) => {
+            if (error) console.warn("Supabase 연결 실패:", error.message);
+            else console.log("Supabase 연결 OK", data?.session ? "(로그인됨)" : "(비로그인)");
+        });
+    </script>
+</head>
+
+<body>
+    <header class="topbar">
+        <div class="brand"><span class="logo"><img src="ukkikii_logo.jpg" alt="" style="width: 100%;"></span><strong>UKKIKKI</strong> 모의주식</div>
+        <div class="toolbar">
+            <span id="clock">--:--:--</span>
+            <button id="resetBtn" class="ghost">리셋</button>
+            <button id="authBtn" class="ghost">로그인</button>
+        </div>
+    </header>
+
+    <main class="layout">
+        <aside class="pane left">
+            <div class="card">
+                <div class="card-title">종목 검색</div><input id="search" class="input" placeholder="티커/종목명 검색" />
+            </div>
+            <div class="card list-card">
+                <div class="card-title">관심종목</div>
+                <ul id="symbolList" class="list"></ul>
+            </div>
+        </aside>
+
+        <section class="pane center">
+            <div class="grid2">
+                <div class="card price-card">
+                    <div class="price-head">
+                        <div>
+                            <div id="symbolName" class="symbol-name">—</div>
+                            <div id="symbolCode" class="symbol-code">—</div>
+                        </div>
+                        <div class="price-now-wrap">
+                            <div id="priceNow" class="price-now">—</div>
+                            <div id="priceChange" class="price-change">—</div>
+                        </div>
+                    </div>
+                    <canvas id="chart" height="220" style="width:100%;display:block"></canvas>
+                </div>
+                <div class="card orderbook-card">
+                    <div class="card-title">호가</div>
+                    <div class="orderbook">
+                        <div>
+                            <div class="ob-head">매도</div>
+                            <ul id="asks" class="ob-list"></ul>
+                        </div>
+                        <div>
+                            <div class="ob-head buy">매수</div>
+                            <ul id="bids" class="ob-list"></ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid2 mt16">
+                <div class="card">
+                    <div class="tabs"><button data-tab="buy" class="tab active">매수</button><button data-tab="sell"
+                            class="tab">매도</button></div>
+                    <div class="order-form">
+                        <div class="row"><label>주문유형</label><select id="orderType" class="input">
+                                <option value="market">시장가</option>
+                                <option value="limit" selected>지정가</option>
+                            </select></div>
+                        <div class="row" id="limitRow"><label>지정가</label><input id="limitPrice" class="input right"
+                                type="number" step="1" /></div>
+                        <div class="row"><label>수량</label><input id="qty" class="input right" type="number" step="1"
+                                min="1" value="1" /></div>
+                        <div class="row"><button id="submitOrder" class="primary w100">주문 제출</button></div>
+                        <div class="hint" id="orderHint">–</div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-title">보유/잔고</div>
+                    <div class="balances">
+                        <div>현금 <strong id="cash">—</strong></div>
+                        <div>총자산 <strong id="equity">—</strong></div>
+                        <div>평가손익 <strong id="pnl">—</strong></div>
+                    </div>
+                    <table class="table" id="positionsTable">
+                        <thead>
+                            <tr>
+                                <th>종목</th>
+                                <th>수량</th>
+                                <th>평단가</th>
+                                <th>평가가</th>
+                                <th>P/L</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card mt16">
+                <div class="card-title">체결내역</div>
+                <table class="table" id="fillsTable">
+                    <thead>
+                        <tr>
+                            <th>시간</th>
+                            <th>종목</th>
+                            <th>매수/매도</th>
+                            <th>수량</th>
+                            <th>가격</th>
+                            <th>체결가치</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </section>
+
+        <aside class="pane right">
+            <div class="card">
+                <div class="card-title">종목 정보</div>
+                <div id="info" class="info"></div>
+            </div>
+            <div class="card">
+                <div class="card-title">열린 주문</div>
+                <table class="table" id="ordersTable">
+                    <thead>
+                        <tr>
+                            <th>종목</th>
+                            <th>유형</th>
+                            <th>방향</th>
+                            <th>수량</th>
+                            <th>가격</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </aside>
+    </main>
+
+    <footer class="footer">우끼끼 모의주식은 실제 주식이 아니끼! 🐵</footer>
+
+    <!-- 로그인/회원가입 모달 -->
+    <div id="authModal"
+        style="position:fixed;inset:0;display:none;background:rgba(0,0,0,.5);align-items:center;justify-content:center;z-index:200">
+        <div style="background:#0b1222;border:1px solid #1f2b4a;border-radius:12px;padding:16px;width:320px">
+            <h3 style="margin:0 0 10px">로그인 / 회원가입</h3>
+            <input id="authEmail" class="input" placeholder="이메일" type="email" style="margin:6px 0">
+            <input id="authPass" class="input" placeholder="비밀번호" type="password" style="margin:6px 0">
+            <div style="display:flex;gap:8px;margin-top:8px">
+                <button id="btnSignIn" class="primary" style="flex:1">로그인</button>
+                <button id="btnSignUp" class="ghost" style="flex:1">회원가입</button>
+            </div>
+            <div id="authMsg" class="hint" style="margin-top:8px">이메일로 로그인</div>
+        </div>
+    </div>
+
+    <!-- Auth UI Events: DOM 생성 후에 실행 -->
+    <script>
+        document.getElementById("authBtn").onclick = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                await supabase.auth.signOut();
+                alert("로그아웃 완료");
+                location.reload();
+            } else {
+                document.getElementById("authModal").style.display = "flex";
+            }
+        };
+
+        document.getElementById("btnSignIn").onclick = async () => {
+            const email = document.getElementById("authEmail").value;
+            const pass = document.getElementById("authPass").value;
+            const { error } = await supabase.auth.signInWithPassword({ email, password: pass });
+            document.getElementById("authMsg").textContent = error ? error.message : "로그인 성공";
+            if (!error) location.reload();
+        };
+
+        document.getElementById("btnSignUp").onclick = async () => {
+            const email = document.getElementById("authEmail").value;
+            const pass = document.getElementById("authPass").value;
+            const { error } = await supabase.auth.signUp({ email, password: pass });
+            document.getElementById("authMsg").textContent = error ? error.message : "가입 완료. 로그인해주세요";
+        };
+
+        document.getElementById("authModal").addEventListener("click", (e) => {
+            if (e.target.id === "authModal") e.target.style.display = "none";
+        });
+    </script>
+
+    <!-- 앱 로직 (모의 시세/체결 엔진) -->
+    <script>
+        const symbols = [
+            { code: "KOSPI", name: "코스피 대표지수", price: 2500, step: 1 },
+            { code: "005930", name: "삼성전자", price: 75000, step: 50 },
+            { code: "000660", name: "SK하이닉스", price: 160000, step: 100 },
+            { code: "035420", name: "NAVER", price: 190000, step: 100 },
+            { code: "035720", name: "카카오", price: 54000, step: 50 },
+            { code: "051910", name: "LG화학", price: 420000, step: 100 }
+        ];
+
+        const state = { selected: "005930", ticks: {}, cash: 10000000, positions: {}, orders: [], fills: [], baseline: {} };
+
+        const el = (id) => document.getElementById(id);
+        const symbolList = el("symbolList"), symbolName = el("symbolName"), symbolCode = el("symbolCode"), priceNow = el("priceNow"), priceChange = el("priceChange");
+        const asksEl = el("asks"), bidsEl = el("bids");
+        const cashEl = el("cash"), equityEl = el("equity"), pnlEl = el("pnl");
+        const positionsTable = el("positionsTable").querySelector("tbody"), fillsTable = el("fillsTable").querySelector("tbody"), ordersTable = el("ordersTable").querySelector("tbody");
+        const info = el("info"), search = el("search"), chart = el("chart"), ctx = chart.getContext("2d"), clock = el("clock");
+        const tabs = document.querySelectorAll('.tab'); let currentSide = 'buy';
+        const orderType = el('orderType'), limitRow = el('limitRow'), limitPrice = el('limitPrice'), qty = el('qty'), submitOrder = el('submitOrder'), orderHint = el('orderHint');
+        const fmt = (n) => n.toLocaleString('ko-KR');
+        const nowTime = () => new Date().toLocaleTimeString('ko-KR', { hour12: false });
+        const sym = (code) => symbols.find(s => s.code === code);
+
+        function drawChart() {
+            const arr = state.ticks[state.selected] || [];
+            const w = chart.width = chart.clientWidth;
+            const h = chart.height = 220;
+            ctx.clearRect(0, 0, w, h);
+            if (arr.length < 2) return;
+            const min = Math.min(...arr), max = Math.max(...arr);
+            const pad = (max - min) * 0.1 + 1;
+            const y = (p) => h - ((p - (min - pad)) / ((max + pad) - (min - pad))) * h;
+            const stepX = w / (arr.length - 1);
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, y(arr[0]));
+            for (let i = 1; i < arr.length; i++) ctx.lineTo(i * stepX, y(arr[i]));
+            ctx.strokeStyle = arr[arr.length - 1] >= arr[0] ? '#18b169' : '#ea3943';
+            ctx.stroke();
+        }
+
+        function renderList() {
+            const q = search.value?.trim().toLowerCase();
+            symbolList.innerHTML = '';
+            symbols
+                .filter(s => !q || s.code.includes(q) || s.name.toLowerCase().includes(q))
+                .forEach(s => {
+                    const ref = state.baseline[s.code] ?? s.price;
+                    const pct = ref ? ((s.price - ref) / ref) * 100 : 0;
+                    const sign = pct >= 0 ? '+' : '';
+                    const li = document.createElement('li');
+                    li.innerHTML = `<span class="sym">${s.name}</span><span class="muted">${s.code}</span><span class="chg" id="chg-${s.code}">${sign}${pct.toFixed(2)}%</span>`;
+                    if (s.code === state.selected) li.style.background = '#0e162a';
+                    li.addEventListener('click', () => selectSymbol(s.code));
+                    symbolList.appendChild(li);
+                });
+        }
+
+        function updatePriceArea() {
+            const s = sym(state.selected);
+            priceNow.textContent = fmt(s.price);
+            const ref = state.baseline[s.code] ?? s.price;
+            const diff = s.price - ref;
+            const pct = ref ? (diff / ref) * 100 : 0;
+            priceChange.className = 'price-change ' + (diff >= 0 ? 'up' : 'down');
+            priceChange.textContent = `${diff >= 0 ? '+' : ''}${fmt(Math.round(diff))} (${pct.toFixed(2)}%)`;
+            const chgEl = document.getElementById(`chg-${s.code}`);
+            if (chgEl) { chgEl.textContent = `${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%`; chgEl.style.color = pct >= 0 ? 'var(--up)' : 'var(--down)'; }
+        }
+
+        function updateOrderbook() {
+            const s = sym(state.selected);
+            const asks = [], bids = [];
+            for (let i = 5; i >= 1; i--) asks.push({ price: s.price + i * s.step, qty: Math.floor(Math.random() * 300 + 50) });
+            for (let i = 1; i <= 5; i++) bids.push({ price: s.price - i * s.step, qty: Math.floor(Math.random() * 300 + 50) });
+            asksEl.innerHTML = asks.map(a => `<li><span>수량</span><span class="ob-price ob-ask">${fmt(a.price)}</span><span class="ob-qty">${fmt(a.qty)}</span></li>`).join('');
+            bidsEl.innerHTML = bids.map(b => `<li><span>수량</span><span class="ob-price ob-bid">${fmt(b.price)}</span><span class="ob-qty">${fmt(b.qty)}</span></li>`).join('');
+        }
+
+        function updateBalances() {
+            const mv = Object.entries(state.positions).reduce((sum, [code, pos]) => sum + pos.qty * sym(code).price, 0);
+            const equity = state.cash + mv;
+            const cost = Object.values(state.positions).reduce((s, p) => s + p.qty * p.avg, 0);
+            const pnl = mv - cost;
+            cashEl.textContent = fmt(state.cash);
+            equityEl.textContent = fmt(equity);
+            pnlEl.textContent = (pnl >= 0 ? '+' : '') + fmt(Math.round(pnl));
+        }
+
+        function renderPositions() {
+            positionsTable.innerHTML = '';
+            for (const [code, pos] of Object.entries(state.positions)) {
+                const cur = sym(code).price;
+                const value = pos.qty * cur;
+                const pl = (cur - pos.avg) * pos.qty;
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td>${sym(code).name}</td><td>${fmt(pos.qty)}</td><td>${fmt(Math.round(pos.avg))}</td><td>${fmt(Math.round(value))}</td><td style="color:${pl >= 0 ? '#18b169' : '#ea3943'}">${(pl >= 0 ? '+' : '') + fmt(Math.round(pl))}</td>`;
+                positionsTable.appendChild(tr);
+            }
+        }
+
+        function renderFills() {
+            fillsTable.innerHTML = '';
+            state.fills.slice(-50).reverse().forEach(f => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td>${f.time}</td><td>${sym(f.code).name}</td><td>${f.side === 'buy' ? '매수' : '매도'}</td><td>${fmt(f.qty)}</td><td>${fmt(f.price)}</td><td>${fmt(f.qty * f.price)}</td>`;
+                fillsTable.appendChild(tr);
+            })
+        }
+
+        function renderOrders() {
+            ordersTable.innerHTML = '';
+            state.orders.forEach(o => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td>${sym(o.code).name}</td><td>${o.type === 'market' ? '시장' : '지정'}</td><td>${o.side === 'buy' ? '매수' : '매도'}</td><td>${fmt(o.qty)}</td><td>${o.price ? fmt(o.price) : '-'}</td><td><button class="ghost" data-cancel="${o.id}">취소</button></td>`;
+                ordersTable.appendChild(tr);
+            });
+        }
+
+        ordersTable.addEventListener('click', (e) => {
+            const id = e.target.getAttribute('data-cancel');
+            if (!id) return;
+            state.orders = state.orders.filter(o => o.id !== id);
+            save(); renderOrders();
+        });
+
+        function placeOrder() {
+            const s = sym(state.selected);
+            const type = orderType.value; const side = currentSide; const n = parseInt(qty.value || '0', 10);
+            const px = type === 'limit' ? parseInt(limitPrice.value || '0', 10) : null;
+            if (!n || n < 1) return toast('수량을 확인하세요.');
+            if (type === 'limit' && (!px || px < 1)) return toast('지정가를 확인하세요.');
+
+            const order = { id: String(Date.now()) + Math.random(), side, type, code: s.code, qty: n, price: px };
+
+            if (type === 'market') {
+                execute(order, s.price);
+            } else {
+                const can = (side === 'buy' && px >= s.price) || (side === 'sell' && px <= s.price);
+                if (can) execute(order, px); else { state.orders.push(order); toast('주문이 접수되었습니다.'); }
+            }
+            save();
+            renderOrders(); updateBalances(); renderPositions(); renderFills();
+        }
+
+        function execute(order, price) {
+            const cost = price * order.qty;
+            if (order.side === 'buy') {
+                if (state.cash < cost) return toast('현금이 부족합니다.');
+                state.cash -= cost;
+                const p = state.positions[order.code] || { qty: 0, avg: 0 };
+                p.avg = (p.qty * p.avg + cost) / (p.qty + order.qty);
+                p.qty += order.qty;
+                state.positions[order.code] = p;
+            } else {
+                const p = state.positions[order.code];
+                if (!p || p.qty < order.qty) return toast('보유 수량이 부족합니다.');
+                p.qty -= order.qty;
+                if (p.qty === 0) delete state.positions[order.code];
+                state.cash += cost;
+            }
+            state.fills.push({ time: nowTime(), side: order.side, code: order.code, qty: order.qty, price });
+            state.orders = state.orders.filter(o => !(o.code === order.code && o.type === 'limit' && ((o.side === 'buy' && o.price >= sym(o.code).price) || (o.side === 'sell' && o.price <= sym(o.code).price))));
+            toast('체결 완료');
+        }
+
+        function toast(msg) { orderHint.textContent = msg; setTimeout(() => orderHint.textContent = '–', 2000); }
+
+        function updateWatchlistChanges() {
+            symbols.forEach(s => {
+                const ref = state.baseline[s.code] ?? s.price;
+                const pct = ref ? ((s.price - ref) / ref) * 100 : 0;
+                const el = document.getElementById(`chg-${s.code}`);
+                if (el) { el.textContent = `${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%`; el.style.color = pct >= 0 ? 'var(--up)' : 'var(--down)'; }
+            });
+        }
+
+        function tick() {
+            symbols.forEach(s => {
+                const vol = s.step * [1, 1, 1, 2][Math.floor(Math.random() * 4)];
+                const dir = Math.random() < 0.5 ? -1 : 1;
+                s.price = Math.max(s.step, s.price + dir * vol);
+                if (!state.ticks[s.code]) state.ticks[s.code] = [s.price];
+                const arr = state.ticks[s.code];
+                arr.push(s.price); if (arr.length > 150) arr.shift();
+            });
+
+            state.orders = state.orders.filter(o => {
+                const s = sym(o.code);
+                if (o.type === 'limit') {
+                    if ((o.side === 'buy' && o.price >= s.price) || (o.side === 'sell' && o.price <= s.price)) {
+                        execute(o, o.price); return false;
+                    }
+                }
+                return true;
+            });
+
+            updatePriceArea();
+            updateOrderbook();
+            drawChart();
+            updateBalances();
+            renderPositions();
+            renderFills();
+            renderOrders();
+            updateWatchlistChanges();
+            save();
+        }
+
+        function save() { localStorage.setItem("mocktrade", JSON.stringify({ state })); }
+        function load() { const raw = localStorage.getItem("mocktrade"); if (!raw) return; try { const obj = JSON.parse(raw); Object.assign(state, obj.state); } catch { } }
+
+        function setBaselines() { symbols.forEach(s => { state.baseline[s.code] = s.price; }); }
+
+        function selectSymbol(code) {
+            state.selected = code; save();
+            const s = sym(code);
+            symbolName.textContent = s.name;
+            symbolCode.textContent = s.code;
+            limitPrice.value = s.price;
+            updatePriceArea();
+            renderList();
+            updateInfo();
+            drawChart();
+            updateWatchlistChanges();
+        }
+
+        function updateInfo() {
+            const s = sym(state.selected);
+            info.innerHTML = `
+      <div>종목명: <strong>${s.name}</strong></div>
+      <div>코드: <strong>${s.code}</strong></div>
+      <div>호가단위: <strong>${fmt(s.step)}</strong></div>
+      <div class="hint">시세는 임의 난수로 생성됩니다. 학습용입니다.</div>`;
+        }
+
+        search.addEventListener('input', renderList);
+        tabs.forEach(btn => btn.addEventListener('click', () => {
+            tabs.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentSide = btn.dataset.tab;
+            submitOrder.textContent = currentSide === 'buy' ? '매수 주문' : '매도 주문';
+        }));
+        orderType.addEventListener('change', () => { const isLimit = orderType.value === 'limit'; limitRow.style.display = isLimit ? 'grid' : 'none'; });
+        submitOrder.addEventListener('click', placeOrder);
+        limitPrice.addEventListener('focus', () => limitPrice.select());
+
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            if (!confirm('매수/매도 내역만 초기화할까요?')) return;
+            state.positions = {};
+            state.orders = [];
+            state.fills = [];
+            state.cash = 10000000;
+            save();
+            renderPositions();
+            renderOrders();
+            renderFills();
+            updateBalances();
+            orderHint.textContent = '내 거래내역 초기화 완료';
+            setTimeout(() => orderHint.textContent = '–', 1500);
+        });
+
+        window.addEventListener('resize', drawChart);
+
+        function init() {
+            load();
+            setBaselines();
+            renderList();
+            selectSymbol(state.selected);
+            updateOrderbook();
+            updateBalances();
+            renderPositions();
+            renderFills();
+            renderOrders();
+            drawChart();
+            setInterval(tick, 1000);
+            setInterval(() => clock.textContent = nowTime(), 250);
+        }
+        init();
+    </script>
+
+    <!-- Supabase: 포트폴리오 저장/불러오기 -->
+    <script>
+        async function saveToDB() {
+            try {
+                if (!window.supabase) return;
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!user) return;
+                await supabase.from('portfolios').upsert({ user_id: user.id, state: window.state });
+            } catch (e) { console.warn('saveToDB error:', e); }
+        }
+
+        async function loadFromDB(uid) {
+            try {
+                const { data, error } = await supabase
+                    .from('portfolios')
+                    .select('state')
+                    .eq('user_id', uid)
+                    .maybeSingle();
+                if (error) { console.warn('loadFromDB error:', error.message); return; }
+                if (data?.state) { Object.assign(window.state, data.state); }
+            } catch (e) { console.warn('loadFromDB error:', e); }
+        }
+
+        supabase.auth.onAuthStateChange(async (_ev, session) => {
+            const user = session?.user || null;
+            const authBtn = document.getElementById('authBtn');
+            if (authBtn) authBtn.textContent = user ? '로그아웃' : '로그인';
+
+            if (user) {
+                await loadFromDB(user.id);
+                if (!window.state.baseline) window.state.baseline = {};
+                try {
+                    if (typeof renderList === 'function') renderList();
+                    if (typeof updateWatchlistChanges === 'function') updateWatchlistChanges();
+                    if (typeof updatePriceArea === 'function') updatePriceArea();
+                    if (typeof updateBalances === 'function') updateBalances();
+                    if (typeof renderPositions === 'function') renderPositions();
+                    if (typeof renderFills === 'function') renderFills();
+                    if (typeof renderOrders === 'function') renderOrders();
+                    if (typeof drawChart === 'function') drawChart();
+                    if (typeof updateInfo === 'function') updateInfo();
+                } catch (_) { }
+                const hint = document.getElementById('orderHint');
+                if (hint) { hint.textContent = '로그인 상태 동기화 완료'; setTimeout(() => hint.textContent = '–', 1200); }
+            }
+        });
+
+        // save() 호출 시 DB도 함께 저장
+        (function patchSave() {
+            const orig = window.save;
+            if (typeof orig === 'function') {
+                window.save = function (...args) {
+                    const r = orig.apply(this, args);
+                    saveToDB();
+                    return r;
+                };
+            }
+        })();
+    </script>
+    <script>
+        /* === 최종 보정 v2: authBtn 강제 동작 보장 (passive 제거) === */
+        (function ensureAuthButtonWorks() {
+            const btn = document.getElementById('authBtn');
+            if (btn) btn.setAttribute('type', 'button');
+
+            document.addEventListener('click', async (e) => {
+                const targetBtn = e.target.closest('#authBtn');
+                if (!targetBtn) return;
+
+                e.preventDefault();
+                e.stopPropagation();
+
+                try {
+                    const { data: { user } } = await supabase.auth.getUser();
+                    if (user) {
+                        await supabase.auth.signOut();
+                        alert('로그아웃 완료');
+                        location.reload();
+                    } else {
+                        const modal = document.getElementById('authModal');
+                        if (modal) modal.style.display = 'flex';
+                    }
+                } catch (err) {
+                    console.error('authBtn handler error:', err);
+                    alert('로그인 처리를 할 수 없어요. 콘솔 오류를 확인해줘.');
+                }
+            }, { capture: true });
+
+            const cssFix = document.createElement('style');
+            cssFix.textContent = `
+                #authBtn { pointer-events:auto !important; position:relative; z-index:10000; }
+                .topbar, .toolbar { pointer-events:auto !important; }
+            `;
+            document.head.appendChild(cssFix);
+        })();
+    </script>
+    <script>
+        /* ===== MockTrade x Supabase 강제 동기화 패치 (덧붙이기 전용) ===== */
+        (function () {
+            const log = (...a) => console.log('[DBSYNC]', ...a);
+            const warn = (...a) => console.warn('[DBSYNC]', ...a);
+
+            if (!window.supabase) { warn('supabase 클라이언트가 없음.'); return; }
+
+            if (typeof window.saveToDB !== 'function') {
+                window.saveToDB = async function saveToDB() {
+                    try {
+                        const { data: { user } } = await supabase.auth.getUser();
+                        if (!user) { log('skip: 비로그인'); return; }
+                        log('UPSERT start', { uid: user.id });
+                        await supabase.from('portfolios').upsert({ user_id: user.id, state: window.state });
+                        log('UPSERT ok');
+                    } catch (e) { warn('saveToDB error(신규):', e?.message || e); }
+                };
+                log('saveToDB: 신규 정의 완료');
+            } else {
+                const origSaveToDB = window.saveToDB;
+                window.saveToDB = async function wrappedSaveToDB(...args) {
+                    log('saveToDB 호출');
+                    try {
+                        const r = await origSaveToDB.apply(this, args);
+                        log('saveToDB 완료'); return r;
+                    } catch (e) { warn('saveToDB error(래핑):', e?.message || e); }
+                };
+                log('saveToDB: 래핑 적용');
+            }
+
+            if (typeof window.save === 'function') {
+                const origSave = window.save;
+                window.save = function patchedSave(...args) {
+                    const r = origSave.apply(this, args);
+                    Promise.resolve().then(() => window.saveToDB()).catch((e) => warn('patched save->saveToDB error:', e?.message || e));
+                    return r;
+                };
+                log('save() 패치 완료');
+            } else {
+                warn('save() 함수가 아직 없음.');
+            }
+
+            const hookSubmitBtn = () => {
+                const btn = document.getElementById('submitOrder');
+                if (!btn) return false;
+                btn.addEventListener('click', () => {
+                    setTimeout(() => window.saveToDB(), 50);
+                    log('submitOrder 클릭 -> saveToDB 예약');
+                });
+                return true;
+            };
+            if (!hookSubmitBtn()) {
+                const t = setInterval(() => { if (hookSubmitBtn()) { clearInterval(t); log('submitOrder 후크 지연 연결 완료'); } }, 150);
+            } else {
+                log('submitOrder 후크 연결 완료');
+            }
+
+            const fillsTbody = document.querySelector('#fillsTable tbody');
+            const ordersTbody = document.querySelector('#ordersTable tbody');
+            const mo = (tb) => {
+                if (!tb) return;
+                const obs = new MutationObserver(() => {
+                    clearTimeout(tb.__saveTimer);
+                    tb.__saveTimer = setTimeout(() => {
+                        log('DOM 변화 감지 -> saveToDB');
+                        window.saveToDB();
+                    }, 120);
+                });
+                obs.observe(tb, { childList: true, subtree: false });
+            };
+            mo(fillsTbody);
+            mo(ordersTbody);
+
+            supabase.auth.onAuthStateChange(async (_e, session) => {
+                const user = session?.user;
+                if (user) {
+                    log('auth state -> 로그인 감지, DB 로드 후 저장');
+                    try {
+                        if (typeof window.loadFromDB === 'function') {
+                            await window.loadFromDB(user.id);
+                        }
+                        await window.saveToDB();
+                    } catch (e) { warn('auth sync error:', e?.message || e); }
+                } else {
+                    log('auth state -> 로그아웃');
+                }
+            });
+
+        })();
+    </script>
+    <script>
+        /* === 주문 제출 시 Supabase UPSERT를 무조건 태우는 보조 훅 === */
+        (async function forceDbSaveOnSubmit(){
+          async function waitClient(){
+            let tries = 0;
+            while(!(window.supabase && window.supabase.auth && typeof window.supabase.auth.getUser === 'function') && tries < 100){
+              await new Promise(r=>setTimeout(r,50));
+              tries++;
+            }
+            if(!(window.supabase && window.supabase.auth)) throw new Error('Supabase client not ready');
+            return window.supabase;
+          }
+          const s = await waitClient();
+
+          function hook(){
+            const btn = document.getElementById('submitOrder');
+            if(!btn) return false;
+            btn.addEventListener('click', async ()=>{
+              setTimeout(async ()=>{
+                try{
+                  const { data:{ user } } = await s.auth.getUser();
+                  if(!user){ console.warn('[forceDb] 비로그인이라 저장 스킵'); return; }
+                  const payload = { user_id: user.id, state: window.state || {} };
+                  const { data, error } = await s.from('portfolios').upsert(payload).select('user_id, updated_at');
+                  if(error) console.warn('[forceDb] upsert error:', error.message);
+                  else      console.log('[forceDb] upsert ok:', data);
+                }catch(e){ console.warn('[forceDb] exception:', e?.message || e); }
+              }, 60);
+            });
+            console.log('[forceDb] submitOrder 훅 연결 완료');
+            return true;
+          }
+          if(!hook()){
+            const t = setInterval(()=>{ if(hook()) clearInterval(t); }, 150);
+          }
+        })();
+    </script>
+
+    <!-- ======= 가상 뉴스 + 모멘텀 (ADD-ONLY) ======= -->
+    <script>
+    (function () {
+      // 스타일 (UI 변경 없이 토스트만 떠요)
+      const style = document.createElement('style');
+      style.textContent = `
+        .news-toast{
+          position:fixed; top:8px; right:12px; z-index:9998;
+          background:rgba(13,21,38,.95); border:1px solid #1f2b4a; color:#e6eefc;
+          padding:10px 12px; border-radius:10px; box-shadow:0 6px 18px rgba(0,0,0,.35);
+          max-width:320px; font-size:13px; line-height:1.45
+        }
+        .news-toast h4{margin:0 0 4px; font-size:13px; color:#8fa3ca; font-weight:700}
+        .news-toast .pos{color:#18b169} .news-toast .neg{color:#ea3943}
+      `;
+      document.head.appendChild(style);
+
+      function showNewsToast(html, ms=8000){
+        const el = document.createElement('div');
+        el.className = 'news-toast';
+        el.innerHTML = html;
+        document.body.appendChild(el);
+        setTimeout(()=> el.remove(), ms);
+      }
+
+      const TEMPLATES = [
+        { title:'메모리 반도체 수요 {x}%↑', body:'글로벌 클라우드 CAPEX 확대. 삼성전자·SK하이닉스 수혜 기대.',
+          affects:{ '000660': +1.0, '005930': +0.6 } },
+        { title:'플랫폼 규제 이슈 재점화', body:'수수료 점검 이슈로 NAVER·카카오 변동성 확대.',
+          affects:{ '035420': -0.8, '035720': -0.9 } },
+        { title:'2차전지 원재료 가격 급락', body:'전고체 배터리 기대 재부각. LG화학 투자심리 개선.',
+          affects:{ '051910': +0.9 } },
+        { title:'환율 급등, 수출 대형주 강세', body:'원화 약세로 IT 대형주 수혜.',
+          affects:{ '005930': +0.7, '000660': +0.7 } },
+        { title:'플랫폼 광고 매출 둔화', body:'경기 둔화 여파로 광고주 보수적. NAVER·카카오 실적 우려.',
+          affects:{ '035420': -0.7, '035720': -0.6 } },
+        { title:'반도체 업황 조정', body:'D램 고정가 하락 소식. 단기 차익 매물 출회.',
+          affects:{ '000660': -1.0, '005930': -0.5 } },
+      ];
+
+      const impulse = {}; // 코드별 누적 모멘텀
+      function addImpulse(map){
+        for(const code in map){
+          impulse[code] = (impulse[code]||0) + map[code];
+        }
+      }
+
+      function rand(a,b){ return Math.floor(Math.random()*(b-a+1))+a; }
+
+      function spawnNews(){
+        const _symbols = (window.symbols || (typeof symbols!=='undefined'?symbols:[]));
+        if(!_symbols || !_symbols.length) return;
+
+        const tpl = TEMPLATES[rand(0, TEMPLATES.length-1)];
+        const x = rand(2,8);
+        const title = tpl.title.replace('{x}', x);
+        const body  = tpl.body;
+
+        const dirClass = Object.values(tpl.affects).some(v=>v<0)?'neg':'pos';
+        showNewsToast(`<h4>속보 · 가상뉴스</h4><div class="${dirClass}"><strong>${title}</strong></div><div>${body}</div>`);
+
+        const bump = {};
+        for(const code in tpl.affects){
+          bump[code] = tpl.affects[code] * (0.8 + Math.random()*0.6); // 강도 0.8~1.4배
+        }
+        addImpulse(bump);
+      }
+
+      function applyImpulse(){
+        const _symbols = (window.symbols || (typeof symbols!=='undefined'?symbols:[]));
+        const _state = (window.state || (typeof state!=='undefined'?state:null));
+        if(!_symbols || !_state) return;
+
+        let changed = false;
+        for(const s of _symbols){
+          const imp = impulse[s.code];
+          if(!imp) continue;
+
+          const delta = Math.sign(imp) * Math.max(1, Math.round(Math.abs(imp) * (1 + Math.random()*0.5))) * s.step;
+          const newPx = Math.max(s.step, s.price + delta);
+          if(newPx !== s.price){
+            s.price = newPx;
+            changed = true;
+            const arr = (_state.ticks[s.code] ||= [s.price]);
+            arr[arr.length-1] = s.price;
+          }
+          impulse[s.code] *= 0.90;
+          if(Math.abs(impulse[s.code]) < 0.05) delete impulse[s.code];
+        }
+        if(changed){
+          try{
+            if(typeof updatePriceArea==='function') updatePriceArea();
+            if(typeof updateOrderbook==='function') updateOrderbook();
+            if(typeof drawChart==='function') drawChart();
+            if(typeof updateBalances==='function') updateBalances();
+            if(typeof renderPositions==='function') renderPositions();
+            if(typeof updateWatchlistChanges==='function') updateWatchlistChanges();
+          }catch(_){}
+        }
+      }
+
+      setTimeout(spawnNews, 10000);   // 시작 10초 후 첫 뉴스
+      setInterval(spawnNews, 60000);  // 매 1분
+      setInterval(applyImpulse, 1000); // 매초 모멘텀 적용
+    })();
+    </script>
+</body>
+</html>
