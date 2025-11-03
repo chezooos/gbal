@@ -381,15 +381,36 @@
             bidsEl.innerHTML = bids.map(b => `<li><span>수량</span><span class="ob-price ob-bid">${fmt(b.price)}</span><span class="ob-qty">${fmt(b.qty)}</span></li>`).join('');
         }
 
-        function updateBalances() {
-            const mv = Object.entries(state.positions).reduce((sum, [code, pos]) => sum + pos.qty * sym(code).price, 0);
+        function updateBalances(){
+            const mv = Object.entries(state.positions)
+                .reduce((sum,[code,pos])=> sum + pos.qty * sym(code).price,0);
             const equity = state.cash + mv;
-            const cost = Object.values(state.positions).reduce((s, p) => s + p.qty * p.avg, 0);
+            const cost = Object.values(state.positions).reduce((s,p)=> s + p.qty*p.avg, 0);
             const pnl = mv - cost;
             cashEl.textContent = fmt(state.cash);
             equityEl.textContent = fmt(equity);
-            pnlEl.textContent = (pnl >= 0 ? '+' : '') + fmt(Math.round(pnl));
+            pnlEl.textContent = (pnl>=0? '+':'') + fmt(Math.round(pnl));
+
+            // === 추가: 자산 0 이하 → 경고 + 리셋 ===
+            if(equity <= 0){
+                setTimeout(()=>{
+                    alert("거지됐끼..........🙊");
+                    // 초기 상태로 리셋
+                    state.positions = {};
+                    state.orders = [];
+                    state.fills = [];
+                    state.cash = 10000000;
+                    save();
+                    renderPositions();
+                    renderOrders();
+                    renderFills();
+                    updateBalances();
+                    orderHint.textContent = '내 거래내역 초기화 완료';
+                    setTimeout(()=>orderHint.textContent='–',1500);
+                }, 200);
+            }
         }
+
 
         function renderPositions() {
             positionsTable.innerHTML = '';
